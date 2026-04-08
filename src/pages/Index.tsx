@@ -1203,7 +1203,7 @@ const Index = () => {
   // ParamInput moved outside component to prevent focus loss
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
+    <div className="fixed inset-0 flex flex-col overflow-hidden" style={{ paddingTop: 'calc(var(--mobile-header-height) + var(--safe-area-top))', paddingBottom: 'var(--mobile-nav-height)' }}>
       {/* Header */}
       <AppHeader 
         title="Structural Master"
