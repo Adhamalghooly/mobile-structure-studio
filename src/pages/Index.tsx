@@ -1203,7 +1203,7 @@ const Index = () => {
   // ParamInput moved outside component to prevent focus loss
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
+    <div className="fixed inset-0 flex flex-col overflow-hidden" style={{ paddingTop: 'calc(var(--mobile-header-height) + var(--safe-area-top))', paddingBottom: 'var(--mobile-nav-height)' }}>
       {/* Header */}
       <AppHeader 
         title="Structural Master"
@@ -1295,13 +1295,7 @@ const Index = () => {
                   />
                 </div>
               ) : (
-                <div className="flex flex-1 overflow-hidden">
-                  <ToolPalette
-                    activeTool={activeTool}
-                    onToolChange={tool => dispatch({ type: 'SET_ACTIVE_TOOL', tool })}
-                    mode={mode}
-                    onModeChange={(m) => dispatch({ type: 'SET_MODE', mode: m })}
-                  />
+                <div className="flex-1 overflow-hidden relative">
                   <ModelCanvas
                     nodes={currentNodes}
                     frames={currentFrames}
@@ -1320,13 +1314,26 @@ const Index = () => {
                     columnLabels={columnLabels}
                     frameEndReleases={frameEndReleases}
                   />
-                  <PropertyPanel
-                    selectedNode={selectedNodeId ? currentNodes.find(n => n.id === selectedNodeId) : null}
-                    selectedFrame={selectedFrameId ? currentFrames.find(f => f.id === selectedFrameId) : null}
-                    selectedArea={selectedAreaId ? currentAreas.find(a => a.id === selectedAreaId) : null}
-                    onNodeRestraintChange={handleNodeRestraintChange}
-                    modelStats={modelStats}
+                  <ToolPalette
+                    activeTool={activeTool}
+                    onToolChange={tool => dispatch({ type: 'SET_ACTIVE_TOOL', tool })}
+                    mode={mode}
+                    onModeChange={(m) => dispatch({ type: 'SET_MODE', mode: m })}
                   />
+                  {(selectedNodeId || selectedFrameId || selectedAreaId) && (
+                    <PropertyPanel
+                      selectedNode={selectedNodeId ? currentNodes.find(n => n.id === selectedNodeId) : null}
+                      selectedFrame={selectedFrameId ? currentFrames.find(f => f.id === selectedFrameId) : null}
+                      selectedArea={selectedAreaId ? currentAreas.find(a => a.id === selectedAreaId) : null}
+                      onNodeRestraintChange={handleNodeRestraintChange}
+                      modelStats={modelStats}
+                      onClose={() => {
+                        dispatch({ type: 'SELECT_NODE', id: null });
+                        dispatch({ type: 'SELECT_FRAME', id: null });
+                        dispatch({ type: 'SELECT_AREA', id: null });
+                      }}
+                    />
+                  )}
                 </div>
               )}
             </div>
