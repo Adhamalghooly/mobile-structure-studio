@@ -90,12 +90,38 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
 
     const nodeMap = new Map(model.nodes.map(n => [n.id, n]));
     const startNode = drawingStartNodeId != null ? nodeMap.get(drawingStartNodeId) : null;
-    const isDrawingLine = interaction.activeTool === 'beam' || interaction.activeTool === 'column';
+    const isDrawingLine = interaction.activeTool === 'beam';
 
     // Draw elements
     for (const el of model.elements) {
       const isSelected = interaction.selectedElementIds.includes(el.id);
-      if (el.type === 'slab' && el.nodeIds.length >= 3) {
+      if (el.type === 'column' && el.nodeIds.length >= 1) {
+        // Column = single point in plan view, drawn as filled square
+        const node = nodeMap.get(el.nodeIds[0]);
+        if (node) {
+          const { sx, sy } = toScreen(node.x, node.y);
+          const size = isSelected ? 14 : 12;
+          ctx.save();
+          ctx.fillStyle = isSelected ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.15)';
+          ctx.fillRect(sx - size, sy - size, size * 2, size * 2);
+          ctx.strokeStyle = isSelected ? '#ef4444' : '#22c55e';
+          ctx.lineWidth = isSelected ? 2.5 : 2;
+          ctx.strokeRect(sx - size, sy - size, size * 2, size * 2);
+          // Cross inside
+          ctx.beginPath();
+          ctx.moveTo(sx - size, sy - size); ctx.lineTo(sx + size, sy + size);
+          ctx.moveTo(sx + size, sy - size); ctx.lineTo(sx - size, sy + size);
+          ctx.strokeStyle = isSelected ? '#ef4444' : '#16a34a';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          ctx.restore();
+          // Label
+          ctx.fillStyle = '#64748b';
+          ctx.font = '9px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(`C${el.id}`, sx, sy - size - 4);
+        }
+      } else if (el.type === 'slab' && el.nodeIds.length >= 3) {
         ctx.beginPath();
         for (let i = 0; i < el.nodeIds.length; i++) {
           const node = nodeMap.get(el.nodeIds[i]);
@@ -118,10 +144,8 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
           ctx.beginPath();
           ctx.moveTo(s1.sx, s1.sy);
           ctx.lineTo(s2.sx, s2.sy);
-          ctx.strokeStyle = isSelected ? '#ef4444'
-            : el.type === 'column' ? '#22c55e'
-            : '#1e293b';
-          ctx.lineWidth = isSelected ? 3 : el.type === 'column' ? 3 : 2;
+          ctx.strokeStyle = isSelected ? '#ef4444' : '#1e293b';
+          ctx.lineWidth = isSelected ? 3 : 2;
           ctx.stroke();
         }
       }
@@ -136,7 +160,7 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
 
       ctx.save();
       ctx.setLineDash([8, 6]);
-      ctx.strokeStyle = interaction.activeTool === 'column' ? 'rgba(34,197,94,0.7)' : 'rgba(59,130,246,0.7)';
+      ctx.strokeStyle = 'rgba(59,130,246,0.7)';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(s1.sx, s1.sy);
@@ -147,7 +171,7 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
       // Snap target circle at cursor
       ctx.beginPath();
       ctx.arc(s2.sx, s2.sy, 6, 0, Math.PI * 2);
-      ctx.strokeStyle = interaction.activeTool === 'column' ? '#22c55e' : '#3b82f6';
+      ctx.strokeStyle = '#3b82f6';
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
@@ -183,26 +207,21 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
         const ringRadius = NODE_RADIUS + 6 + pulse * 6;
         ctx.beginPath();
         ctx.arc(sx, sy, ringRadius, 0, Math.PI * 2);
-        ctx.strokeStyle = interaction.activeTool === 'column'
-          ? `rgba(34,197,94,${0.3 + pulse * 0.4})`
-          : `rgba(59,130,246,${0.3 + pulse * 0.4})`;
+        ctx.strokeStyle = `rgba(59,130,246,${0.3 + pulse * 0.4})`;
         ctx.lineWidth = 2;
         ctx.stroke();
 
         // Solid inner highlight
         ctx.beginPath();
         ctx.arc(sx, sy, NODE_RADIUS + 4, 0, Math.PI * 2);
-        ctx.fillStyle = interaction.activeTool === 'column'
-          ? 'rgba(34,197,94,0.2)'
-          : 'rgba(59,130,246,0.2)';
+        ctx.fillStyle = 'rgba(59,130,246,0.2)';
         ctx.fill();
         ctx.restore();
       }
 
       ctx.beginPath();
       ctx.arc(sx, sy, NODE_RADIUS, 0, Math.PI * 2);
-      ctx.fillStyle = isStart
-        ? (interaction.activeTool === 'column' ? '#16a34a' : '#2563eb')
+      ctx.fillStyle = isStart ? '#2563eb'
         : isSelected ? '#ef4444' : '#3b82f6';
       ctx.fill();
 
@@ -246,7 +265,7 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
 
   // Start/stop animation loop
   useEffect(() => {
-    const isDrawingLine = (interaction.activeTool === 'beam' || interaction.activeTool === 'column') && drawingStartNodeId != null;
+    const isDrawingLine = interaction.activeTool === 'beam' && drawingStartNodeId != null;
     if (isDrawingLine) {
       animFrameRef.current = requestAnimationFrame(draw);
     } else {
@@ -278,7 +297,14 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
   const findElementAt = useCallback((sx: number, sy: number): number | null => {
     const nodeMap = new Map(model.nodes.map(n => [n.id, n]));
     for (const el of model.elements) {
-      if (el.nodeIds.length >= 2) {
+      if (el.type === 'column' && el.nodeIds.length >= 1) {
+        const node = nodeMap.get(el.nodeIds[0]);
+        if (node) {
+          const s = toScreen(node.x, node.y);
+          const dx = sx - s.sx, dy = sy - s.sy;
+          if (Math.sqrt(dx * dx + dy * dy) < HIT_RADIUS) return el.id;
+        }
+      } else if (el.nodeIds.length >= 2) {
         const n1 = nodeMap.get(el.nodeIds[0]);
         const n2 = nodeMap.get(el.nodeIds[1]);
         if (n1 && n2) {

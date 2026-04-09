@@ -43,8 +43,15 @@ const MobileApp: React.FC = () => {
 
     if (tool === 'node') {
       addNode(wx, wy);
-    } else if (tool === 'beam' || tool === 'column') {
-      // Find existing node at location or create new
+    } else if (tool === 'column') {
+      // Column = single point in plan view (extends in Z)
+      const existingNode = project.model.nodes.find(n =>
+        Math.abs(n.x - wx) < 100 && Math.abs(n.y - wy) < 100
+      );
+      const nodeId = existingNode?.id ?? addNode(wx, wy);
+      addElement('column', [nodeId]);
+    } else if (tool === 'beam') {
+      // Beam = two points
       const existingNode = project.model.nodes.find(n =>
         Math.abs(n.x - wx) < 100 && Math.abs(n.y - wy) < 100
       );
@@ -78,11 +85,14 @@ const MobileApp: React.FC = () => {
       } else {
         setEditingNodeId(nodeId);
       }
-    } else if (interaction.activeTool === 'beam' || interaction.activeTool === 'column') {
+    } else if (interaction.activeTool === 'column') {
+      // Column = single node tap
+      addElement('column', [nodeId]);
+    } else if (interaction.activeTool === 'beam') {
       if (drawingStartNode === null) {
         setDrawingStartNode(nodeId);
       } else {
-        addElement(interaction.activeTool, [drawingStartNode, nodeId]);
+        addElement('beam', [drawingStartNode, nodeId]);
         setDrawingStartNode(null);
       }
     } else if (interaction.activeTool === 'delete') {
@@ -161,15 +171,11 @@ const MobileApp: React.FC = () => {
                 setDrawingStartNode(null);
               }}
             />
-            {/* Drawing indicator */}
-            {drawingStartNode !== null && (
+            {/* Drawing indicator - beam only (column is single-tap) */}
+            {drawingStartNode !== null && interaction.activeTool === 'beam' && (
               <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
-                <div className={`px-4 py-2 rounded-full text-xs font-bold shadow-lg animate-pulse ${
-                  interaction.activeTool === 'column'
-                    ? 'bg-green-500 text-white'
-                    : 'bg-blue-500 text-white'
-                }`}>
-                  ✋ انقر على العقدة الثانية لإنشاء {interaction.activeTool === 'column' ? 'عمود' : 'كمرة'}
+                <div className="px-4 py-2 rounded-full text-xs font-bold shadow-lg animate-pulse bg-blue-500 text-white">
+                  ✋ انقر على العقدة الثانية لإنشاء كمرة
                 </div>
                 <button
                   onClick={() => setDrawingStartNode(null)}
@@ -179,11 +185,18 @@ const MobileApp: React.FC = () => {
                 </button>
               </div>
             )}
-            {/* Tool hint when beam/column tool active but no start node */}
-            {drawingStartNode === null && (interaction.activeTool === 'beam' || interaction.activeTool === 'column') && (
+            {/* Tool hint */}
+            {drawingStartNode === null && interaction.activeTool === 'beam' && (
               <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20">
                 <div className="px-4 py-2 rounded-full text-xs font-semibold bg-muted/90 text-foreground backdrop-blur shadow">
                   انقر على العقدة الأولى أو نقطة فارغة
+                </div>
+              </div>
+            )}
+            {interaction.activeTool === 'column' && (
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20">
+                <div className="px-4 py-2 rounded-full text-xs font-semibold bg-green-500/90 text-white backdrop-blur shadow">
+                  انقر لوضع عمود (نقطة واحدة)
                 </div>
               </div>
             )}
