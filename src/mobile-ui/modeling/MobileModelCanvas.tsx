@@ -95,7 +95,33 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
     // Draw elements
     for (const el of model.elements) {
       const isSelected = interaction.selectedElementIds.includes(el.id);
-      if (el.type === 'slab' && el.nodeIds.length >= 3) {
+      if (el.type === 'column' && el.nodeIds.length >= 1) {
+        // Column = single point in plan view, drawn as filled square
+        const node = nodeMap.get(el.nodeIds[0]);
+        if (node) {
+          const { sx, sy } = toScreen(node.x, node.y);
+          const size = isSelected ? 14 : 12;
+          ctx.save();
+          ctx.fillStyle = isSelected ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.15)';
+          ctx.fillRect(sx - size, sy - size, size * 2, size * 2);
+          ctx.strokeStyle = isSelected ? '#ef4444' : '#22c55e';
+          ctx.lineWidth = isSelected ? 2.5 : 2;
+          ctx.strokeRect(sx - size, sy - size, size * 2, size * 2);
+          // Cross inside
+          ctx.beginPath();
+          ctx.moveTo(sx - size, sy - size); ctx.lineTo(sx + size, sy + size);
+          ctx.moveTo(sx + size, sy - size); ctx.lineTo(sx - size, sy + size);
+          ctx.strokeStyle = isSelected ? '#ef4444' : '#16a34a';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          ctx.restore();
+          // Label
+          ctx.fillStyle = '#64748b';
+          ctx.font = '9px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(`C${el.id}`, sx, sy - size - 4);
+        }
+      } else if (el.type === 'slab' && el.nodeIds.length >= 3) {
         ctx.beginPath();
         for (let i = 0; i < el.nodeIds.length; i++) {
           const node = nodeMap.get(el.nodeIds[i]);
@@ -118,10 +144,8 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
           ctx.beginPath();
           ctx.moveTo(s1.sx, s1.sy);
           ctx.lineTo(s2.sx, s2.sy);
-          ctx.strokeStyle = isSelected ? '#ef4444'
-            : el.type === 'column' ? '#22c55e'
-            : '#1e293b';
-          ctx.lineWidth = isSelected ? 3 : el.type === 'column' ? 3 : 2;
+          ctx.strokeStyle = isSelected ? '#ef4444' : '#1e293b';
+          ctx.lineWidth = isSelected ? 3 : 2;
           ctx.stroke();
         }
       }
