@@ -43,8 +43,15 @@ const MobileApp: React.FC = () => {
 
     if (tool === 'node') {
       addNode(wx, wy);
-    } else if (tool === 'beam' || tool === 'column') {
-      // Find existing node at location or create new
+    } else if (tool === 'column') {
+      // Column = single point in plan view (extends in Z)
+      const existingNode = project.model.nodes.find(n =>
+        Math.abs(n.x - wx) < 100 && Math.abs(n.y - wy) < 100
+      );
+      const nodeId = existingNode?.id ?? addNode(wx, wy);
+      addElement('column', [nodeId]);
+    } else if (tool === 'beam') {
+      // Beam = two points
       const existingNode = project.model.nodes.find(n =>
         Math.abs(n.x - wx) < 100 && Math.abs(n.y - wy) < 100
       );
@@ -78,11 +85,14 @@ const MobileApp: React.FC = () => {
       } else {
         setEditingNodeId(nodeId);
       }
-    } else if (interaction.activeTool === 'beam' || interaction.activeTool === 'column') {
+    } else if (interaction.activeTool === 'column') {
+      // Column = single node tap
+      addElement('column', [nodeId]);
+    } else if (interaction.activeTool === 'beam') {
       if (drawingStartNode === null) {
         setDrawingStartNode(nodeId);
       } else {
-        addElement(interaction.activeTool, [drawingStartNode, nodeId]);
+        addElement('beam', [drawingStartNode, nodeId]);
         setDrawingStartNode(null);
       }
     } else if (interaction.activeTool === 'delete') {
