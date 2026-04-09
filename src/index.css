@@ -124,13 +124,3 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
-
-/* Legacy utility classes */
-@layer components {
-  .property-label {
-    @apply text-xs font-semibold text-muted-foreground uppercase;
-  }
-  .property-value {
-    @apply font-mono font-semibold text-foreground;
-  }
-}

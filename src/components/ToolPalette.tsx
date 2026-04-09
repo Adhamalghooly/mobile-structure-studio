@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  Box, Columns, Minus, Circle, MousePointer, Trash2, Move, Ruler
+  Box, Columns, Minus, Circle, MousePointer, Trash2, Move
 } from 'lucide-react';
 
 export type ToolType = 'select' | 'node' | 'beam' | 'column' | 'slab' | 'move' | 'delete';
@@ -23,66 +23,96 @@ const tools: { id: ToolType; label: string; icon: any; manual?: boolean }[] = [
 ];
 
 export default function ToolPalette({ activeTool, onToolChange, mode, onModeChange }: ToolPaletteProps) {
-  const [expanded, setExpanded] = useState(false);
-
   return (
     <>
-      {/* Floating FAB toolbar - same pattern as new mobile UI */}
-      <div className="fixed right-3 z-30 flex flex-col items-end gap-1"
-        style={{ top: 'calc(var(--mobile-header-height) + var(--safe-area-top) + 60px)' }}
-      >
-        {expanded ? (
-          <div className="bg-background/95 backdrop-blur rounded-2xl shadow-lg border border-border p-1.5 flex flex-col gap-1">
-            {/* Mode toggle */}
+      {/* Desktop: vertical sidebar */}
+      <div className="hidden md:flex flex-col w-48 border-r border-border bg-card p-3 gap-3 shrink-0">
+        {/* Mode Toggle */}
+        <div className="space-y-2">
+          <span className="property-label">وضع النمذجة</span>
+          <div className="flex gap-1">
             <button
-              onClick={() => onModeChange(mode === 'auto' ? 'manual' : 'auto')}
-              className={`w-11 h-11 rounded-xl flex items-center justify-center text-[9px] font-bold transition-colors ${
-                mode === 'auto'
-                  ? 'bg-engineering-success text-engineering-blue-foreground'
-                  : 'bg-engineering-warning text-engineering-blue-foreground'
+              onClick={() => onModeChange('auto')}
+              className={`flex-1 px-2 py-2 text-xs font-semibold rounded transition-colors min-h-[44px] ${
+                mode === 'auto' ? 'mode-badge-auto' : 'bg-muted text-muted-foreground hover:bg-accent/20'
               }`}
             >
-              {mode === 'auto' ? 'تلق' : 'يدوي'}
+              تلقائي
             </button>
-            <div className="w-8 h-px bg-border mx-auto" />
-            {tools.map(tool => {
-              const Icon = tool.icon;
-              const disabled = tool.manual && mode === 'auto';
-              return (
-                <button
-                  key={tool.id}
-                  onClick={() => {
-                    if (!disabled) {
-                      onToolChange(tool.id);
-                      setExpanded(false);
-                    }
-                  }}
-                  disabled={disabled}
-                  className={`w-11 h-11 rounded-xl flex items-center justify-center transition-colors ${
-                    activeTool === tool.id
-                      ? 'bg-engineering-blue text-engineering-blue-foreground'
-                      : disabled
-                      ? 'text-muted-foreground/30'
-                      : 'text-foreground hover:bg-muted'
-                  }`}
-                  title={tool.label}
-                >
-                  <Icon size={20} />
-                </button>
-              );
-            })}
+            <button
+              onClick={() => onModeChange('manual')}
+              className={`flex-1 px-2 py-2 text-xs font-semibold rounded transition-colors min-h-[44px] ${
+                mode === 'manual' ? 'mode-badge-manual' : 'bg-muted text-muted-foreground hover:bg-accent/20'
+              }`}
+            >
+              يدوي
+            </button>
           </div>
-        ) : (
-          <button
-            onClick={() => setExpanded(true)}
-            className="w-12 h-12 rounded-full bg-engineering-blue text-engineering-blue-foreground shadow-lg flex items-center justify-center"
-          >
-            {(() => {
-              const ActiveIcon = tools.find(t => t.id === activeTool)?.icon || MousePointer;
-              return <ActiveIcon size={20} />;
-            })()}
-          </button>
-        )}
+        </div>
+
+        {/* Tools */}
+        <div className="space-y-1">
+          <span className="property-label">الأدوات</span>
+          {tools.map(tool => {
+            const Icon = tool.icon;
+            const disabled = tool.manual && mode === 'auto';
+            return (
+              <button
+                key={tool.id}
+                onClick={() => !disabled && onToolChange(tool.id)}
+                disabled={disabled}
+                className={`w-full tool-button min-h-[44px] ${
+                  activeTool === tool.id ? 'tool-button-active' : ''
+                } ${disabled ? 'opacity-30 cursor-not-allowed' : ''}`}
+              >
+                <Icon size={16 as any} />
+                {tool.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Info */}
+        <div className="mt-auto">
+          <p className="text-[10px] text-muted-foreground leading-relaxed">
+            {mode === 'auto'
+              ? 'ارسم البلاطات وسيتم توليد الجسور والأعمدة تلقائياً'
+              : 'أضف العناصر يدوياً: عقد، جسور، أعمدة'}
+          </p>
+        </div>
+      </div>
+
+      {/* Mobile: bottom horizontal toolbar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border px-2 py-1 flex gap-1 overflow-x-auto">
+        {/* Mode toggle compact */}
+        <button
+          onClick={() => onModeChange(mode === 'auto' ? 'manual' : 'auto')}
+          className={`shrink-0 px-3 py-2 text-[10px] font-semibold rounded min-h-[44px] min-w-[44px] ${
+            mode === 'auto' ? 'mode-badge-auto' : 'mode-badge-manual'
+          }`}
+        >
+          {mode === 'auto' ? 'تلقائي' : 'يدوي'}
+        </button>
+        <div className="w-px bg-border shrink-0" />
+        {tools.map(tool => {
+          const Icon = tool.icon;
+          const disabled = tool.manual && mode === 'auto';
+          return (
+            <button
+              key={tool.id}
+              onClick={() => !disabled && onToolChange(tool.id)}
+              disabled={disabled}
+              className={`shrink-0 flex flex-col items-center justify-center px-2 py-1 rounded min-h-[44px] min-w-[44px] transition-colors ${
+                activeTool === tool.id
+                  ? 'bg-accent text-accent-foreground'
+                  : 'text-muted-foreground'
+              } ${disabled ? 'opacity-30' : ''}`}
+            >
+              <Icon size={18 as any} />
+              <span className="text-[9px] mt-0.5">{tool.label}</span>
+            </button>
+          );
+        })}
       </div>
     </>
   );
