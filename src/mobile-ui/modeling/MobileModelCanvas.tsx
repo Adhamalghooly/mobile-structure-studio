@@ -265,7 +265,7 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
 
   // Start/stop animation loop
   useEffect(() => {
-    const isDrawingLine = (interaction.activeTool === 'beam' || interaction.activeTool === 'column') && drawingStartNodeId != null;
+    const isDrawingLine = interaction.activeTool === 'beam' && drawingStartNodeId != null;
     if (isDrawingLine) {
       animFrameRef.current = requestAnimationFrame(draw);
     } else {
