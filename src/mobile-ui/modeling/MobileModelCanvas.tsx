@@ -207,26 +207,21 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
         const ringRadius = NODE_RADIUS + 6 + pulse * 6;
         ctx.beginPath();
         ctx.arc(sx, sy, ringRadius, 0, Math.PI * 2);
-        ctx.strokeStyle = interaction.activeTool === 'column'
-          ? `rgba(34,197,94,${0.3 + pulse * 0.4})`
-          : `rgba(59,130,246,${0.3 + pulse * 0.4})`;
+        ctx.strokeStyle = `rgba(59,130,246,${0.3 + pulse * 0.4})`;
         ctx.lineWidth = 2;
         ctx.stroke();
 
         // Solid inner highlight
         ctx.beginPath();
         ctx.arc(sx, sy, NODE_RADIUS + 4, 0, Math.PI * 2);
-        ctx.fillStyle = interaction.activeTool === 'column'
-          ? 'rgba(34,197,94,0.2)'
-          : 'rgba(59,130,246,0.2)';
+        ctx.fillStyle = 'rgba(59,130,246,0.2)';
         ctx.fill();
         ctx.restore();
       }
 
       ctx.beginPath();
       ctx.arc(sx, sy, NODE_RADIUS, 0, Math.PI * 2);
-      ctx.fillStyle = isStart
-        ? (interaction.activeTool === 'column' ? '#16a34a' : '#2563eb')
+      ctx.fillStyle = isStart ? '#2563eb'
         : isSelected ? '#ef4444' : '#3b82f6';
       ctx.fill();
 
