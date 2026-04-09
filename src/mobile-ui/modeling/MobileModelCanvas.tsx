@@ -90,7 +90,7 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
 
     const nodeMap = new Map(model.nodes.map(n => [n.id, n]));
     const startNode = drawingStartNodeId != null ? nodeMap.get(drawingStartNodeId) : null;
-    const isDrawingLine = interaction.activeTool === 'beam' || interaction.activeTool === 'column';
+    const isDrawingLine = interaction.activeTool === 'beam';
 
     // Draw elements
     for (const el of model.elements) {
