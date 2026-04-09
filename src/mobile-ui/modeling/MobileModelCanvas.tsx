@@ -297,7 +297,14 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
   const findElementAt = useCallback((sx: number, sy: number): number | null => {
     const nodeMap = new Map(model.nodes.map(n => [n.id, n]));
     for (const el of model.elements) {
-      if (el.nodeIds.length >= 2) {
+      if (el.type === 'column' && el.nodeIds.length >= 1) {
+        const node = nodeMap.get(el.nodeIds[0]);
+        if (node) {
+          const s = toScreen(node.x, node.y);
+          const dx = sx - s.sx, dy = sy - s.sy;
+          if (Math.sqrt(dx * dx + dy * dy) < HIT_RADIUS) return el.id;
+        }
+      } else if (el.nodeIds.length >= 2) {
         const n1 = nodeMap.get(el.nodeIds[0]);
         const n2 = nodeMap.get(el.nodeIds[1]);
         if (n1 && n2) {
