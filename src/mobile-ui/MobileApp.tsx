@@ -152,15 +152,39 @@ const MobileApp: React.FC = () => {
               onCanvasTap={handleCanvasTap}
               onNodeMove={handleNodeMove}
               snapGrid={snapGrid}
+              drawingStartNodeId={drawingStartNode}
             />
             <FloatingToolbar
               activeTool={interaction.activeTool}
-              onToolChange={setTool}
+              onToolChange={(tool) => {
+                setTool(tool);
+                setDrawingStartNode(null);
+              }}
             />
             {/* Drawing indicator */}
             {drawingStartNode !== null && (
-              <div className="absolute top-2 left-2 bg-engineering-blue text-engineering-blue-foreground px-3 py-1 rounded-full text-xs font-semibold z-20">
-                Tap end point for {interaction.activeTool}
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
+                <div className={`px-4 py-2 rounded-full text-xs font-bold shadow-lg animate-pulse ${
+                  interaction.activeTool === 'column'
+                    ? 'bg-green-500 text-white'
+                    : 'bg-blue-500 text-white'
+                }`}>
+                  ✋ انقر على العقدة الثانية لإنشاء {interaction.activeTool === 'column' ? 'عمود' : 'كمرة'}
+                </div>
+                <button
+                  onClick={() => setDrawingStartNode(null)}
+                  className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center text-sm font-bold shadow-lg"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+            {/* Tool hint when beam/column tool active but no start node */}
+            {drawingStartNode === null && (interaction.activeTool === 'beam' || interaction.activeTool === 'column') && (
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20">
+                <div className="px-4 py-2 rounded-full text-xs font-semibold bg-muted/90 text-foreground backdrop-blur shadow">
+                  انقر على العقدة الأولى أو نقطة فارغة
+                </div>
               </div>
             )}
             {/* Model info */}

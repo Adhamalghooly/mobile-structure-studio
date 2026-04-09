@@ -11,6 +11,8 @@ interface MobileModelCanvasProps {
   onCanvasTap: (x: number, y: number) => void;
   onNodeMove: (id: number, x: number, y: number) => void;
   snapGrid: number;
+  /** Node ID of the first point when drawing a beam/column */
+  drawingStartNodeId?: number | null;
 }
 
 function snapTo(val: number, grid: number): number {
@@ -22,9 +24,13 @@ const HIT_RADIUS = 20;
 
 const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
   model, viewport, onViewportChange, interaction,
-  onNodeTap, onElementTap, onCanvasTap, onNodeMove, snapGrid
+  onNodeTap, onElementTap, onCanvasTap, onNodeMove, snapGrid,
+  drawingStartNodeId = null,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [cursorWorld, setCursorWorld] = useState<{ x: number; y: number } | null>(null);
+  const animFrameRef = useRef(0);
+
   const touchState = useRef<{
     type: 'none' | 'pan' | 'pinch' | 'drag';
     startX: number; startY: number;
@@ -44,8 +50,11 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
     wy: -(sy - viewport.offsetY) / viewport.scale,
   }), [viewport]);
 
+  // Pulse animation timestamp
+  const pulseRef = useRef(0);
+
   // Drawing
-  const draw = useCallback(() => {
+  const draw = useCallback((timestamp?: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -57,8 +66,11 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
 
+    const t = timestamp ?? performance.now();
+    const pulse = 0.5 + 0.5 * Math.sin(t / 300); // 0..1 oscillation
+
     // Background
-    ctx.fillStyle = getComputedStyle(canvas).getPropertyValue('--tw-bg-opacity') ? '#f5f6fa' : '#f5f6fa';
+    ctx.fillStyle = '#f5f6fa';
     ctx.fillRect(0, 0, w, h);
 
     // Grid
@@ -77,6 +89,8 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
     }
 
     const nodeMap = new Map(model.nodes.map(n => [n.id, n]));
+    const startNode = drawingStartNodeId != null ? nodeMap.get(drawingStartNodeId) : null;
+    const isDrawingLine = interaction.activeTool === 'beam' || interaction.activeTool === 'column';
 
     // Draw elements
     for (const el of model.elements) {
@@ -113,19 +127,86 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
       }
     }
 
+    // ─── Rubber-band preview line from startNode to cursor ───
+    if (startNode && isDrawingLine && cursorWorld) {
+      const s1 = toScreen(startNode.x, startNode.y);
+      const snappedX = snapTo(cursorWorld.x, snapGrid);
+      const snappedY = snapTo(cursorWorld.y, snapGrid);
+      const s2 = toScreen(snappedX, snappedY);
+
+      ctx.save();
+      ctx.setLineDash([8, 6]);
+      ctx.strokeStyle = interaction.activeTool === 'column' ? 'rgba(34,197,94,0.7)' : 'rgba(59,130,246,0.7)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(s1.sx, s1.sy);
+      ctx.lineTo(s2.sx, s2.sy);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Snap target circle at cursor
+      ctx.beginPath();
+      ctx.arc(s2.sx, s2.sy, 6, 0, Math.PI * 2);
+      ctx.strokeStyle = interaction.activeTool === 'column' ? '#22c55e' : '#3b82f6';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Distance label
+      const dx = snappedX - startNode.x;
+      const dy = snappedY - startNode.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > 0) {
+        const midSx = (s1.sx + s2.sx) / 2;
+        const midSy = (s1.sy + s2.sy) / 2;
+        const label = dist >= 1000 ? `${(dist / 1000).toFixed(2)} m` : `${dist.toFixed(0)} mm`;
+        ctx.font = 'bold 11px monospace';
+        const tw = ctx.measureText(label).width;
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.fillRect(midSx - tw / 2 - 4, midSy - 16, tw + 8, 20);
+        ctx.fillStyle = '#1e293b';
+        ctx.textAlign = 'center';
+        ctx.fillText(label, midSx, midSy - 2);
+      }
+      ctx.restore();
+    }
+
     // Draw nodes
     for (const node of model.nodes) {
       const { sx, sy } = toScreen(node.x, node.y);
       const isSelected = interaction.selectedNodeIds.includes(node.id);
+      const isStart = node.id === drawingStartNodeId;
       const hasSupport = node.restraints.ux || node.restraints.uy || node.restraints.uz;
-      
+
+      // Pulsing ring for start node
+      if (isStart) {
+        ctx.save();
+        const ringRadius = NODE_RADIUS + 6 + pulse * 6;
+        ctx.beginPath();
+        ctx.arc(sx, sy, ringRadius, 0, Math.PI * 2);
+        ctx.strokeStyle = interaction.activeTool === 'column'
+          ? `rgba(34,197,94,${0.3 + pulse * 0.4})`
+          : `rgba(59,130,246,${0.3 + pulse * 0.4})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Solid inner highlight
+        ctx.beginPath();
+        ctx.arc(sx, sy, NODE_RADIUS + 4, 0, Math.PI * 2);
+        ctx.fillStyle = interaction.activeTool === 'column'
+          ? 'rgba(34,197,94,0.2)'
+          : 'rgba(59,130,246,0.2)';
+        ctx.fill();
+        ctx.restore();
+      }
+
       ctx.beginPath();
       ctx.arc(sx, sy, NODE_RADIUS, 0, Math.PI * 2);
-      ctx.fillStyle = isSelected ? '#ef4444' : '#3b82f6';
+      ctx.fillStyle = isStart
+        ? (interaction.activeTool === 'column' ? '#16a34a' : '#2563eb')
+        : isSelected ? '#ef4444' : '#3b82f6';
       ctx.fill();
 
       if (hasSupport) {
-        // Draw triangle support
         ctx.beginPath();
         ctx.moveTo(sx - 8, sy + 8);
         ctx.lineTo(sx + 8, sy + 8);
@@ -136,13 +217,13 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
       }
 
       // Label
-      ctx.fillStyle = '#64748b';
-      ctx.font = '10px monospace';
+      ctx.fillStyle = isStart ? '#0f172a' : '#64748b';
+      ctx.font = isStart ? 'bold 11px monospace' : '10px monospace';
       ctx.textAlign = 'center';
       ctx.fillText(`N${node.id}`, sx, sy - 12);
     }
 
-    // Drawing preview
+    // Drawing preview (polygon for slab)
     if (interaction.isDrawing && interaction.drawingPoints.length > 0) {
       ctx.setLineDash([5, 5]);
       ctx.strokeStyle = '#3b82f6';
@@ -156,10 +237,24 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
       ctx.stroke();
       ctx.setLineDash([]);
     }
-  }, [model, viewport, interaction, toScreen, snapGrid]);
 
+    // Continue animation if drawing is active
+    if (startNode && isDrawingLine) {
+      animFrameRef.current = requestAnimationFrame(draw);
+    }
+  }, [model, viewport, interaction, toScreen, snapGrid, drawingStartNodeId, cursorWorld]);
+
+  // Start/stop animation loop
   useEffect(() => {
-    draw();
+    const isDrawingLine = (interaction.activeTool === 'beam' || interaction.activeTool === 'column') && drawingStartNodeId != null;
+    if (isDrawingLine) {
+      animFrameRef.current = requestAnimationFrame(draw);
+    } else {
+      draw();
+    }
+    return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    };
   }, [draw]);
 
   useEffect(() => {
@@ -197,6 +292,12 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
     return null;
   }, [model, toScreen]);
 
+  // Track cursor/touch position for rubber-band
+  const updateCursor = useCallback((sx: number, sy: number) => {
+    const { wx, wy } = toWorld(sx, sy);
+    setCursorWorld({ x: wx, y: wy });
+  }, [toWorld]);
+
   // Touch handlers
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
@@ -222,6 +323,8 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
     const sx = e.touches[0].clientX - rect.left;
     const sy = e.touches[0].clientY - rect.top;
 
+    updateCursor(sx, sy);
+
     if (interaction.activeTool === 'move') {
       const nodeId = findNodeAt(sx, sy);
       if (nodeId) {
@@ -235,7 +338,7 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
     } else {
       touchState.current = { type: 'none', startX: sx, startY: sy, startDist: 0, startScale: viewport.scale, startOX: viewport.offsetX, startOY: viewport.offsetY, dragNodeId: null };
     }
-  }, [viewport, interaction.activeTool, findNodeAt]);
+  }, [viewport, interaction.activeTool, findNodeAt, updateCursor]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
@@ -261,6 +364,11 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
     const sx = e.touches[0].clientX - rect.left;
     const sy = e.touches[0].clientY - rect.top;
 
+    // Update rubber-band cursor
+    if (drawingStartNodeId != null) {
+      updateCursor(sx, sy);
+    }
+
     if (touchState.current.type === 'pan') {
       const dx = sx - touchState.current.startX;
       const dy = sy - touchState.current.startY;
@@ -273,14 +381,13 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
       const { wx, wy } = toWorld(sx, sy);
       onNodeMove(touchState.current.dragNodeId, snapTo(wx, snapGrid), snapTo(wy, snapGrid));
     }
-  }, [viewport, onViewportChange, toWorld, onNodeMove, snapGrid]);
+  }, [viewport, onViewportChange, toWorld, onNodeMove, snapGrid, drawingStartNodeId, updateCursor]);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
     
     if (touchState.current.type === 'pan') {
-      // Check if it was a tap (small movement)
       if (e.changedTouches.length > 0) {
         const sx = e.changedTouches[0].clientX - rect.left;
         const sy = e.changedTouches[0].clientY - rect.top;
@@ -310,6 +417,13 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
   }, [findNodeAt, findElementAt, onNodeTap, onElementTap, onCanvasTap, toWorld, snapGrid]);
 
   // Mouse support for desktop testing
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (drawingStartNodeId == null) return;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    updateCursor(e.clientX - rect.left, e.clientY - rect.top);
+  }, [drawingStartNodeId, updateCursor]);
+
   const handleClick = useCallback((e: React.MouseEvent) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -335,6 +449,7 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onClick={handleClick}
+      onMouseMove={handleMouseMove}
     />
   );
 };
