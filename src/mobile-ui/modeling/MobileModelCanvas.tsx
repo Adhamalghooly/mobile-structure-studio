@@ -160,7 +160,7 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
 
       ctx.save();
       ctx.setLineDash([8, 6]);
-      ctx.strokeStyle = interaction.activeTool === 'column' ? 'rgba(34,197,94,0.7)' : 'rgba(59,130,246,0.7)';
+      ctx.strokeStyle = 'rgba(59,130,246,0.7)';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(s1.sx, s1.sy);
@@ -171,7 +171,7 @@ const MobileModelCanvas: React.FC<MobileModelCanvasProps> = ({
       // Snap target circle at cursor
       ctx.beginPath();
       ctx.arc(s2.sx, s2.sy, 6, 0, Math.PI * 2);
-      ctx.strokeStyle = interaction.activeTool === 'column' ? '#22c55e' : '#3b82f6';
+      ctx.strokeStyle = '#3b82f6';
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
